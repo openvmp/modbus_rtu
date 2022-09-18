@@ -26,10 +26,10 @@ and troubleshooting/debugging tools).
 flowchart TB
     cli["# Modbus debugging\n$ ros2 topic echo /modbus/example_bus/01"] -. "DDS" .-> topic_modbus
     app["Any application"] -- "DDS\n(with context switch)" --> topic_modbus
-    cli_serial["# Serial debugging\n$ ros2 topic echo /serial"] -. "DDS" ....-> topic_serial[/Topic:\n/serial/]
+    cli_serial["# Serial debugging\n$ ros2 topic echo /serial"] -. "DDS" ....-> topic_serial[/ROS2 interfaces:\n/serial/.../]
     subgraph modbus_exe["Process: modbus_rtu_standalone"]
       subgraph modbus["Library: modbus"]
-        topic_modbus[/Topic:\n/modbus/example_bus/01/] --> driver_modbus["Modbus implementation"]
+        topic_modbus[/ROS2 interfaces:\n/modbus/example_bus/01/] --> driver_modbus["Modbus implementation"]
       end
       subgraph serial["Library: serial"]
         topic_serial --> driver["Serial port driver"]
@@ -54,19 +54,19 @@ that is linked with this library directly.
 
 ```mermaid
 flowchart TB
-    cli_serial["# Serial debugging\n$ ros2 topic echo /serial"] -. "DDS" ....-> topic_serial[/Topic:\n/serial/]
+    cli_serial["# Serial debugging\n$ ros2 topic echo /serial"] -. "DDS" ....-> topic_serial[/ROS2 interfaces:\n/serial/.../]
     subgraph app["Your application"]
       code["Your code"] -- "Native API calls" --> driver_modbus
       code["Your code"] -- "or DDS\n(potentially without\ncontext switch)" --> topic_modbus
       subgraph modbus_exe["Library: modbus_rtu_standalone"]
         subgraph modbus["Library: modbus"]
-          topic_modbus[/Topic:\n/modbus/example_bus/01/] --> driver_modbus["Modbus implementation"]
+          topic_modbus[/ROS2 interfaces:\n/modbus/example_bus/01/] --> driver_modbus["Modbus implementation"]
         end
         subgraph serial["Library: serial"]
           topic_serial --> driver["Serial port driver"]
         end
         driver_modbus --> rtu["Modbus RTU implementation"]
-        rtu -- "C function calls" --> driver
+        rtu -- "Native API calls" --> driver
         driver --> file{{"Character device"}}
       end
     end
