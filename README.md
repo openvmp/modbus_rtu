@@ -1,21 +1,18 @@
-# ROS2 Modbus RTU
+# OpenVMP
 
-## Introduction
+[![Licence](license.svg)](https://opensource.org/licenses/Apache-2.0)
 
-This package is an ultimate C++ implementation of Modbus RTU for ROS2. It is
-intended to implement in
+## ROS2 Modbus RTU
+
+This package is an ultimate C++ implementation of Modbus RTU for ROS2.
 
 It can be used either as a library or a standalone process. In both cases it
 provides messaging topics for introspection and debugging. It performs wisely
 in case of serial line saturation in any of the I/O directions.
 
-It is a part of [the OpenVMP project](https://github.com/openvmp/openvmp)
-But it is made to be universal and usable anywhere.
+It's a part of [the OpenVMP project](https://github.com/openvmp/openvmp)
+But it's made to be universal and usable anywhere.
 
-
-## Overview
-
-There are two ways how to use ROS2 Modbus RTU in your projects.
 
 ### Modbus RTU via ROS2 interface
 
