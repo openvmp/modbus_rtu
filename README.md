@@ -1,6 +1,6 @@
 # OpenVMP
 
-[![License](./license.svg)](LICENSE.txt)
+[![License](./license.svg)](./LICENSE.txt)
 
 ## ROS2 Modbus RTU
 
@@ -70,4 +70,4 @@ flowchart TB
     cli["# Modbus debugging\n$ ros2 topic echo /modbus/example_bus/01"] -. "DDS" ..-> topic_modbus
 ```
 
-![ROS ROS2 index package module Modbus RTU](https://www.google-analytics.com/collect?v=1&tid=UA-242596187-2&cid=555&aip=1&t=event&ec=github&ea=md&dp=%2FREADME.md&dt=ROS2%20Modbus%20RTU)
+![ROS/ROS2 index package for OpenVMP module: Modbus RTU](https://www.google-analytics.com/collect?v=1&tid=UA-242596187-2&cid=555&aip=1&t=event&ec=github&ea=md&dp=%2FREADME.md&dt=ROS2%20package%20for%20Modbus%20RTU)
