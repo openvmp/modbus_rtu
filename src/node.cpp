@@ -13,10 +13,8 @@
 
 namespace modbus_rtu {
 
-Node::Node(std::shared_ptr<serial::InterfaceNative> prov)
-    : rclcpp::Node::Node("modbus_rtu"), prov_{prov} {
-  intf_ =
-      std::shared_ptr<ModbusRtuInterface>(new ModbusRtuInterface(this, prov));
+Node::Node() : rclcpp::Node::Node("modbus_rtu") {
+  intf_ = std::make_shared<ModbusRtuInterface>(this);
 }
 
 }  // namespace modbus_rtu

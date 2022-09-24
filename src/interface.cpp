@@ -101,7 +101,7 @@ static uint16_t modbus_rtu_crc(const uint8_t *nData, uint16_t wLength) {
 }
 #endif
 
-static std::string modbus_rtu_frame(uint8_t *data, size_t size) {
+std::string ModbusRtuInterface::modbus_rtu_frame_(uint8_t *data, size_t size) {
   uint16_t crc = modbus_rtu_crc((uint8_t *)&data[0], size - 2);
   data[sizeof(data) - 2] = (crc & 0xFF00) >> 8;  // high
   data[sizeof(data) - 1] = crc & 0xFF;           // low
@@ -109,9 +109,8 @@ static std::string modbus_rtu_frame(uint8_t *data, size_t size) {
   return std::string((char *)&data[0], sizeof(data));
 }
 
-ModbusRtuInterface::ModbusRtuInterface(
-    Node *node, std::shared_ptr<serial::InterfaceNative> prov)
-    : ModbusInterface((rclcpp::Node *)node), prov_{prov} {
+ModbusRtuInterface::ModbusRtuInterface(rclcpp::Node *node)
+    : ModbusInterface(node), prov_(node) {
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
       interface_prefix_.as_string() + "/rtu/crc_check_failed", 10);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
@@ -119,10 +118,11 @@ ModbusRtuInterface::ModbusRtuInterface(
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
       interface_prefix_.as_string() + "/rtu/partial_input", 10);
 
-  prov->register_input_cb(&ModbusRtuInterface::input_cb_, this);
+  prov_.register_input_cb(&ModbusRtuInterface::input_cb_, this);
 }
 
-void ModbusRtuInterface::input_cb_(const std::string &msg, void *user_data) {
+/* static */ void ModbusRtuInterface::input_cb_(const std::string &msg,
+                                                void *user_data) {
   (void)msg;
   (void)user_data;
 
@@ -164,7 +164,8 @@ void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
     }
 
     if (p == input_promises_.end()) {
-      // Not found anyone waiting on these 2 bytes, dropping 1 of them
+      // Not found anyone waiting on these 2 bytes, dropping 1 of them in the
+      // attempt to recover
       MODBUS_PUBLISH_INC(UInt32, rtu_unwanted_input_, 1);
       input_queue_.erase(0, 1);
       continue;
@@ -224,104 +225,36 @@ void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
     // CRC is OK
     std::string response(&input_queue_[1], expected_len - 3);  // 3=leaf_id+crc
     p->promise.set_value(response);
-    input_queue_.erase(0, 3);  // 3 is leaf_id+fc+exception_code+
+    input_queue_.erase(0, expected_len);
     input_promises_.erase(p);
   }
 
-  // input_queue_ is either already empty, or it's unwanted garbage
+  // input_queue_ is either already empty, or it's unwanted garbage (nobody is
+  // waiting for input)
   input_queue_ = "";
 
   input_promises_mutex_.unlock();
 }
 
-rclcpp::FutureReturnCode
-ModbusRtuInterface::holding_register_read_handler_real_(
-    const std::shared_ptr<modbus::srv::HoldingRegisterRead::Request> request,
-    std::shared_ptr<modbus::srv::HoldingRegisterRead::Response> response) {
-  uint8_t data[] = {
-      request->leaf_id,
-      MODBUS_FC_READ_HOLDING_REGISTERS,
-      (uint8_t)((request->addr & 0xFF00) >> 8),   // high
-      (uint8_t)(request->addr & 0xFF),            // low
-      (uint8_t)((request->count & 0xFF00) >> 8),  // high
-      (uint8_t)(request->count & 0xFF),           // low
-      0,                                          // crc high
-      0                                           // crclow
-  };
-  std::string output = modbus_rtu_frame(data, sizeof(data));
-
+std::string ModbusRtuInterface::send_request_(uint8_t leaf_id,
+                                              const std::string &output) {
   input_promises_mutex_.lock();
-  input_promises_.emplace_back(request->leaf_id,
-                               MODBUS_FC_READ_HOLDING_REGISTERS);
+  input_promises_.emplace_back(leaf_id, MODBUS_FC_READ_HOLDING_REGISTERS);
   std::future<std::string> f = input_promises_.back().promise.get_future();
   input_promises_mutex_.unlock();
 
   // Make sure to write after the promise is already queued
-  prov_->output(output);
+  prov_.output(output);
 
   // TODO(clairbee): implement a timeout here
   f.wait();
+  RCLCPP_DEBUG(node_->get_logger(), "Future arrived");
 
   std::string result = f.get();
-
   RCLCPP_DEBUG(node_->get_logger(), "Received RTU response: %s",
                (serial::utils::bin2hex(result)).c_str());
 
-  if (result.length() < 2) {  // 2 = fc + exception_code (or len)
-    return rclcpp::FutureReturnCode::INTERRUPTED;
-  }
-
-  uint8_t fc = (uint8_t)result[0];
-  switch (fc) {
-    case MODBUS_FC_READ_HOLDING_REGISTERS:
-      // See if we have enough data do read the length
-      if (result.length() < 2) {
-        return rclcpp::FutureReturnCode::INTERRUPTED;
-      }
-
-      // See if we have amount of data that is consistent with length
-      response->len = result[1];
-      if ((response->len & 1) || result.length() != 2 + response->len) {
-        return rclcpp::FutureReturnCode::INTERRUPTED;
-      }
-
-      // Read the dynamic part in
-      for (int i = 0; i < response->len / 2; i++) {
-        response->values.push_back(ntohs(*(uint16_t *)&result[2 + 2 * i]));
-      }
-
-      return rclcpp::FutureReturnCode::SUCCESS;
-
-    case 0x80:
-      // this is an error report
-      response->exception_code = (uint8_t)result[1];
-      /* fall through */
-
-    default:
-      return rclcpp::FutureReturnCode::INTERRUPTED;
-  }
-}
-
-rclcpp::FutureReturnCode
-ModbusRtuInterface::holding_register_write_handler_real_(
-    const std::shared_ptr<modbus::srv::HoldingRegisterWrite::Request> request,
-    std::shared_ptr<modbus::srv::HoldingRegisterWrite::Response> response) {
-  (void)request;
-  (void)response;
-  // TODO(clairbee): send the request to the serial line
-  return rclcpp::FutureReturnCode::INTERRUPTED;
-}
-
-rclcpp::FutureReturnCode
-ModbusRtuInterface::holding_register_write_multiple_handler_real_(
-    const std::shared_ptr<modbus::srv::HoldingRegisterWriteMultiple::Request>
-        request,
-    std::shared_ptr<modbus::srv::HoldingRegisterWriteMultiple::Response>
-        response) {
-  (void)request;
-  (void)response;
-  // TODO(clairbee): send the request to the serial line
-  return rclcpp::FutureReturnCode::INTERRUPTED;
+  return result;
 }
 
 }  // namespace modbus_rtu

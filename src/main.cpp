@@ -11,12 +11,10 @@
 
 #include "modbus_rtu/node.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "serial/node.hpp"
 
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  auto serial_node = std::make_shared<serial::Node>();
-  auto node = std::make_shared<modbus_rtu::Node>(serial_node->intf_native);
+  auto node = std::make_shared<modbus_rtu::Node>();
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
