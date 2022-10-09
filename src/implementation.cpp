@@ -7,13 +7,14 @@
  * Licensed under Apache License, Version 2.0.
  */
 
-#include "modbus_rtu/interface.hpp"
+#include "modbus_rtu/implementation.hpp"
 
 #include <chrono>
 #include <cstdlib>
 
 #include "modbus/protocol.hpp"
 #include "modbus_rtu/node.hpp"
+#include "serial/factory.hpp"
 #include "serial/utils.hpp"
 
 using namespace std::chrono_literals;
@@ -24,6 +25,8 @@ static const std::map<uint8_t, const size_t> fc_to_len_static = {
     {MODBUS_FC_READ_HOLDING_REGISTERS, 2 + 1 + 2},
     {MODBUS_FC_PRESET_SINGLE_REGISTER, 2 + 4 + 2},
     {MODBUS_FC_PRESET_MULTIPLE_REGISTERS, 2 + 4 + 2},
+    {MODBUS_FC_GET_COM_EVENT_LOG, 2 + 1 + 2},
+    {MODBUS_FC_READ_DEVICE_ID, 2 + 8 + 2},
     {0x80, 2 + 1 + 2},
 };
 static const std::map<uint8_t, const size_t>
@@ -31,6 +34,8 @@ static const std::map<uint8_t, const size_t>
         {MODBUS_FC_READ_HOLDING_REGISTERS, 2},
         {MODBUS_FC_PRESET_SINGLE_REGISTER, 0},
         {MODBUS_FC_PRESET_MULTIPLE_REGISTERS, 0},
+        {MODBUS_FC_GET_COM_EVENT_LOG,
+         9},  // FIXME(clairbee): this won't work for more than 1 object id
         {0x80, 0},
 };
 
@@ -99,16 +104,18 @@ static uint16_t modbus_rtu_crc(const uint8_t *nData, uint16_t wLength) {
 }
 #endif
 
-std::string ModbusRtuInterface::modbus_rtu_frame_(uint8_t *data, size_t size) {
-  uint16_t crc = modbus_rtu_crc((uint8_t *)&data[0], size - 2);
-  data[sizeof(data) - 2] = (crc & 0xFF00) >> 8;  // high
-  data[sizeof(data) - 1] = crc & 0xFF;           // low
+std::string Implementation::modbus_rtu_frame_(uint8_t *data, size_t size) {
+  uint16_t crc = modbus_rtu_crc(data, size - 2);
+  data[size - 1] = (crc & 0xFF00) >> 8;  // high
+  data[size - 2] = crc & 0xFF;           // low
 
-  return std::string((char *)&data[0], sizeof(data));
+  return std::string((char *)&data[0], size);
 }
 
-ModbusRtuInterface::ModbusRtuInterface(rclcpp::Node *node)
-    : ModbusInterface(node), prov_(node) {
+Implementation::Implementation(rclcpp::Node *node)
+    : modbus::Implementation(node) {
+  prov_ = serial::Factory::New(node);
+
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
       interface_prefix_.as_string() + "/rtu/crc_check_failed", 10);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
@@ -116,25 +123,27 @@ ModbusRtuInterface::ModbusRtuInterface(rclcpp::Node *node)
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
       interface_prefix_.as_string() + "/rtu/partial_input", 10);
 
-  prov_.register_input_cb(&ModbusRtuInterface::input_cb_, this);
+  prov_->register_input_cb(&Implementation::input_cb_, this);
 }
 
-/* static */ void ModbusRtuInterface::input_cb_(const std::string &msg,
-                                                void *user_data) {
+/* static */ void Implementation::input_cb_(const std::string &msg,
+                                            void *user_data) {
   (void)msg;
   (void)user_data;
 
-  ModbusRtuInterface *that = (ModbusRtuInterface *)user_data;
+  Implementation *that = (Implementation *)user_data;
   that->input_cb_real_(msg);
 }
 
-void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
+void Implementation::input_cb_real_(const std::string &msg) {
   input_promises_mutex_.lock();
 
   // TODO(clairbee): optimize it to avoid excessive copying
   input_queue_ += msg;
   RCLCPP_DEBUG(node_->get_logger(), "Received data: %s",
                (serial::utils::bin2hex(msg)).c_str());
+  RCLCPP_DEBUG(node_->get_logger(), "Queued data: %s",
+               (serial::utils::bin2hex(input_queue_)).c_str());
 
   // check if there is anything to do
   while (input_queue_.length() > 0 && input_promises_.size() != 0) {
@@ -186,6 +195,8 @@ void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
     size_t expected_static_len = fc_to_len_static.at(received_fc);
     if (input_queue_.length() < expected_static_len) {
       // not enough data to parse it yet
+      RCLCPP_DEBUG(node_->get_logger(),
+                   "Not enough data to parse it yet (static part).");
       MODBUS_PUBLISH_INC(UInt32, rtu_partial_input_, 1);
       input_promises_mutex_.unlock();
       return;
@@ -199,22 +210,27 @@ void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
     size_t expected_len = expected_static_len + expected_dynamic_len;
     if (input_queue_.length() < expected_len) {
       // not enough data to parse it yet
+      RCLCPP_DEBUG(node_->get_logger(),
+                   "Not enough data to parse it yet (dynamic part).");
       MODBUS_PUBLISH_INC(UInt32, rtu_partial_input_, 1);
       input_promises_mutex_.unlock();
       return;
     }
 
     // Verify CRC
-    uint16_t crc = ntohs(*(uint16_t *)(&input_queue_[expected_len - 2]));
+    uint16_t crc =
+        ((((uint16_t)input_queue_[expected_len - 1]) << 8) & 0xFF00) +
+        (((uint16_t)input_queue_[expected_len - 2]) & 0xFF);
     uint16_t expected_crc =
         modbus_rtu_crc((uint8_t *)&input_queue_[0], expected_len - 2);
     if (crc != expected_crc) {
       // CRC check failed, dropping the first byte in an attempt to find the
       // next message somewhere in this body
       RCLCPP_DEBUG(
-          node_->get_logger(), "CRC failed, expected: %s",
+          node_->get_logger(), "CRC failed, expected: %s, received: %s",
           (serial::utils::bin2hex(std::string((char *)&expected_crc, 2)))
-              .c_str());
+              .c_str(),
+          (serial::utils::bin2hex(std::string((char *)&crc, 2))).c_str());
       MODBUS_PUBLISH_INC(UInt32, rtu_crc_check_failed_, 1);
       input_queue_.erase(0, 1);
       continue;
@@ -227,22 +243,26 @@ void ModbusRtuInterface::input_cb_real_(const std::string &msg) {
     input_promises_.erase(p);
   }
 
-  // input_queue_ is either already empty, or it's unwanted garbage (nobody is
-  // waiting for input)
-  input_queue_ = "";
+  if (input_queue_.length() > 0) {
+    // input_queue_ is either already empty, or it's unwanted garbage (nobody is
+    // waiting for input)
+    RCLCPP_DEBUG(node_->get_logger(),
+                 "Unwanted garbage. Clearing the input_queue.");
+    input_queue_ = "";
+  }
 
   input_promises_mutex_.unlock();
 }
 
-std::string ModbusRtuInterface::send_request_(uint8_t leaf_id,
-                                              const std::string &output) {
+std::string Implementation::send_request_(uint8_t leaf_id, uint8_t fc,
+                                          const std::string &output) {
   input_promises_mutex_.lock();
-  input_promises_.emplace_back(leaf_id, MODBUS_FC_READ_HOLDING_REGISTERS);
+  input_promises_.emplace_back(leaf_id, fc);
   std::future<std::string> f = input_promises_.back().promise.get_future();
   input_promises_mutex_.unlock();
 
   // Make sure to write after the promise is already queued
-  prov_.output(output);
+  prov_->output(output);
 
   // TODO(clairbee): implement a timeout here
   f.wait();

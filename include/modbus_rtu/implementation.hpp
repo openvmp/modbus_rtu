@@ -7,24 +7,24 @@
  * Licensed under Apache License, Version 2.0.
  */
 
-#ifndef OPENVMP_MODBUS_RTU_INTERFACE_H
-#define OPENVMP_MODBUS_RTU_INTERFACE_H
+#ifndef OPENVMP_MODBUS_RTU_IMPLEMENTATION_H
+#define OPENVMP_MODBUS_RTU_IMPLEMENTATION_H
 
 #include <future>
 #include <memory>
 #include <string>
 
-#include "modbus/interface.hpp"
+#include "modbus/implementation.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "serial/interface.hpp"
 #include "std_msgs/msg/u_int32.hpp"
 
 namespace modbus_rtu {
 
-class ModbusRtuInterface : public modbus::ModbusInterface {
+class Implementation : public modbus::Implementation {
  public:
-  ModbusRtuInterface(rclcpp::Node *node);
-  virtual ~ModbusRtuInterface() {}
+  Implementation(rclcpp::Node *node);
+  virtual ~Implementation() {}
 
  protected:
   rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr rtu_crc_check_failed_;
@@ -53,7 +53,7 @@ class ModbusRtuInterface : public modbus::ModbusInterface {
       std::shared_ptr<modbus::srv::ReadDeviceId::Response> response) override;
 
  private:
-  serial::Interface prov_;
+  std::shared_ptr<serial::Interface> prov_;
 
   class Promise {
    public:
@@ -74,7 +74,8 @@ class ModbusRtuInterface : public modbus::ModbusInterface {
   // input_cb_real_ is the real handler of the callbacks from the serial module.
   void input_cb_real_(const std::string &msg);
   // send_request_ send a request and waits for a response
-  std::string send_request_(uint8_t leaf_id, const std::string &output);
+  std::string send_request_(uint8_t leaf_id, uint8_t fc,
+                            const std::string &output);
   std::string modbus_rtu_frame_(uint8_t *data, size_t size);
 
   // published values
@@ -85,4 +86,4 @@ class ModbusRtuInterface : public modbus::ModbusInterface {
 
 }  // namespace modbus_rtu
 
-#endif  // OPENVMP_MODBUS_RTU_INTERFACE_H
+#endif  // OPENVMP_MODBUS_RTU_IMPLEMENTATION_H

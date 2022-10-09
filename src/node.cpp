@@ -12,7 +12,7 @@
 namespace modbus_rtu {
 
 Node::Node() : rclcpp::Node::Node("modbus_rtu") {
-  intf_ = std::make_shared<ModbusRtuInterface>(this);
+  impl_ = std::make_shared<Implementation>(this);
 }
 
 }  // namespace modbus_rtu

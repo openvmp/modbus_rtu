@@ -11,7 +11,7 @@
 #include <cstdlib>
 
 #include "modbus/protocol.hpp"
-#include "modbus_rtu/interface.hpp"
+#include "modbus_rtu/implementation.hpp"
 #include "modbus_rtu/node.hpp"
 #include "serial/utils.hpp"
 
@@ -19,24 +19,25 @@ using namespace std::chrono_literals;
 
 namespace modbus_rtu {
 
-rclcpp::FutureReturnCode ModbusRtuInterface::get_com_event_log_handler_real_(
+rclcpp::FutureReturnCode Implementation::get_com_event_log_handler_real_(
     const std::shared_ptr<modbus::srv::GetComEventLog::Request> request,
     std::shared_ptr<modbus::srv::GetComEventLog::Response> response) {
+  static const uint8_t fc = MODBUS_FC_GET_COM_EVENT_LOG;
   uint8_t data[] = {
-      request->leaf_id, MODBUS_FC_GET_COM_EVENT_LOG,
+      request->leaf_id, fc,
       0,  // crc high
       0   // crclow
   };
   std::string output = modbus_rtu_frame_(data, sizeof(data));
 
-  auto result = send_request_(request->leaf_id, output);
+  auto result = send_request_(request->leaf_id, fc, output);
   if (result.length() < 2) {  // 2 = fc + exception_code (or len)
     return rclcpp::FutureReturnCode::INTERRUPTED;
   }
 
-  uint8_t fc = (uint8_t)result[0];
-  switch (fc) {
-    case MODBUS_FC_GET_COM_EVENT_LOG:
+  uint8_t fc_received = (uint8_t)result[0];
+  switch (fc_received) {
+    case fc:
       // See if we have amount of data that is consistent with length
       // Read the dynamic part in
       for (size_t i = 1; i < result.length(); i++) {
@@ -45,7 +46,7 @@ rclcpp::FutureReturnCode ModbusRtuInterface::get_com_event_log_handler_real_(
 
       return rclcpp::FutureReturnCode::SUCCESS;
 
-    case 0x80:
+    case 0x80 | fc:
       // this is an error report
       response->exception_code = (uint8_t)result[1];
       /* fall through */
@@ -55,9 +56,11 @@ rclcpp::FutureReturnCode ModbusRtuInterface::get_com_event_log_handler_real_(
   }
 }
 
-rclcpp::FutureReturnCode ModbusRtuInterface::read_device_id_handler_real_(
+rclcpp::FutureReturnCode Implementation::read_device_id_handler_real_(
     const std::shared_ptr<modbus::srv::ReadDeviceId::Request> request,
     std::shared_ptr<modbus::srv::ReadDeviceId::Response> response) {
+  static const uint8_t fc = MODBUS_FC_READ_DEVICE_ID;
+
   uint8_t conformity_level = 3;
   for (uint8_t device_id_code = 1;
        device_id_code <=
@@ -68,7 +71,7 @@ rclcpp::FutureReturnCode ModbusRtuInterface::read_device_id_handler_real_(
     do {
       uint8_t data[] = {
           request->leaf_id,
-          MODBUS_FC_READ_DEVICE_ID,
+          fc,
           0x0E,  // "MEI Type" == "Modbus Encapsulated Protocol"
           device_id_code,
           object_id,
@@ -77,14 +80,14 @@ rclcpp::FutureReturnCode ModbusRtuInterface::read_device_id_handler_real_(
       };
       std::string output = modbus_rtu_frame_(data, sizeof(data));
 
-      auto result = send_request_(request->leaf_id, output);
+      auto result = send_request_(request->leaf_id, fc, output);
       if (result.length() < 7) {  // 2 = fc + exception_code (or len)
         return rclcpp::FutureReturnCode::INTERRUPTED;
       }
 
-      uint8_t fc = (uint8_t)result[0];
-      switch (fc) {
-        case MODBUS_FC_READ_DEVICE_ID: {
+      uint8_t fc_received = (uint8_t)result[0];
+      switch (fc_received) {
+        case fc: {
           // TODO(clairbee): check mei type in result[1]
           // TODO(clairbee): check device_id_code in result[2]
           conformity_level = result[3];
@@ -116,7 +119,7 @@ rclcpp::FutureReturnCode ModbusRtuInterface::read_device_id_handler_real_(
           break;
         }
 
-        case 0x80:
+        case 0x80 | fc:
           // this is an error report
           response->exception_code = (uint8_t)result[1];
           /* fall through */

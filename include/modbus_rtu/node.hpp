@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-#include "modbus_rtu/interface.hpp"
+#include "modbus_rtu/implementation.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 namespace modbus_rtu {
@@ -23,7 +23,7 @@ class Node : public rclcpp::Node {
   Node();
 
  private:
-  std::shared_ptr<ModbusRtuInterface> intf_;
+  std::shared_ptr<Implementation> impl_;
 };
 
 }  // namespace modbus_rtu
