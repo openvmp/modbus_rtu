@@ -10,6 +10,8 @@
 #include <chrono>
 #include <cstdlib>
 
+#include <arpa/inet.h>
+
 #include "modbus/protocol.hpp"
 #include "modbus_rtu/implementation.hpp"
 #include "modbus_rtu/node.hpp"
