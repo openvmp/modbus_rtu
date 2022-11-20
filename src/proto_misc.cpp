@@ -101,7 +101,7 @@ rclcpp::FutureReturnCode Implementation::read_device_id_handler_real_(
           uint8_t offset = 7;
           while (offset < 255 && num > 0) {
             uint8_t len = result[offset + 1];
-            if (result.length() < offset + 2 + len) {
+            if (result.length() < (size_t)offset + 2 + len) {
               return rclcpp::FutureReturnCode::INTERRUPTED;
             }
 
