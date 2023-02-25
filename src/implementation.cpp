@@ -114,15 +114,15 @@ std::string Implementation::modbus_rtu_frame_(uint8_t *data, size_t size) {
 
 Implementation::Implementation(rclcpp::Node *node)
     : modbus::Implementation(node) {
-  prov_ = serial::Factory::New(node);
-
+  auto prefix = get_prefix_();
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
-      interface_prefix_.as_string() + "/rtu/crc_check_failed", 10);
+      prefix + "/rtu/crc_check_failed", 10);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      interface_prefix_.as_string() + "/rtu/unwanted_input", 10);
+      prefix + "/rtu/unwanted_input", 10);
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      interface_prefix_.as_string() + "/rtu/partial_input", 10);
+      prefix + "/rtu/partial_input", 10);
 
+  prov_ = serial::Factory::New(node);
   prov_->register_input_cb(&Implementation::input_cb_, this);
 }
 
