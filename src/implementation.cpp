@@ -116,11 +116,17 @@ Implementation::Implementation(rclcpp::Node *node)
     : modbus::Implementation(node) {
   auto prefix = get_prefix_();
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/crc_check_failed", 10);
+      prefix + "/rtu/crc_check_failed",
+      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
+          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/unwanted_input", 10);
+      prefix + "/rtu/unwanted_input",
+      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
+          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/partial_input", 10);
+      prefix + "/rtu/partial_input",
+      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
+          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
 
   prov_ = serial::Factory::New(node);
   prov_->register_input_cb(&Implementation::input_cb_, this);
