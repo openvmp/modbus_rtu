@@ -115,18 +115,27 @@ std::string Implementation::modbus_rtu_frame_(uint8_t *data, size_t size) {
 Implementation::Implementation(rclcpp::Node *node)
     : modbus::Implementation(node) {
   auto prefix = get_prefix_();
+
+  rmw_qos_profile_t rmw = {
+      .history = rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+      .depth = 1,
+      .reliability =
+          rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
+      .durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL,
+      .deadline = {0, 50000000},
+      .lifespan = {0, 50000000},
+      .liveliness = RMW_QOS_POLICY_LIVELINESS_AUTOMATIC,
+      .liveliness_lease_duration = {0, 0},
+      .avoid_ros_namespace_conventions = false,
+  };
+  auto qos = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw), rmw);
+
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/crc_check_failed",
-      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
-          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
+      prefix + "/rtu/crc_check_failed", qos);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/unwanted_input",
-      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
-          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
+      prefix + "/rtu/unwanted_input", qos);
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/partial_input",
-      rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT |
-          rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST);
+      prefix + "/rtu/partial_input", qos);
 
   prov_ = serial::Factory::New(node);
   prov_->register_input_cb(&Implementation::input_cb_, this);
