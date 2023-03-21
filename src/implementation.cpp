@@ -19,6 +19,11 @@
 
 using namespace std::chrono_literals;
 
+#ifndef DEBUG
+#undef RCLCPP_DEBUG
+#define RCLCPP_DEBUG(...)
+#endif
+
 namespace modbus_rtu {
 
 static const std::map<uint8_t, const size_t> fc_to_len_static = {
@@ -114,6 +119,8 @@ std::string Implementation::modbus_rtu_frame_(uint8_t *data, size_t size) {
 
 Implementation::Implementation(rclcpp::Node *node)
     : modbus::Implementation(node) {
+  input_queue_last_changed_ = std::chrono::steady_clock::now();
+
   auto prefix = get_prefix_();
 
   rmw_qos_profile_t rmw = {
@@ -151,12 +158,28 @@ Implementation::Implementation(rclcpp::Node *node)
 }
 
 void Implementation::input_cb_real_(const std::string &msg) {
-  input_promises_mutex_.lock();
-
-  // TODO(clairbee): optimize it to avoid excessive copying
-  input_queue_ += msg;
   RCLCPP_DEBUG(node_->get_logger(), "Received data: %s",
                (serial::utils::bin2hex(msg)).c_str());
+
+  input_promises_mutex_.lock();
+
+// check if buffered data is old enough to be ignored
+#define INPUT_QUEUE_TIMEOUT_MS 17
+  auto now = std::chrono::steady_clock::now();
+  if (std::chrono::duration_cast<std::chrono::milliseconds>(
+          input_queue_last_changed_ - now)
+          .count() > INPUT_QUEUE_TIMEOUT_MS) {
+    RCLCPP_DEBUG(node_->get_logger(),
+                 "Wiping unused data due to a timeout: %dms",
+                 (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
+                           input_queue_last_changed_ - now)
+                           .count()));
+    input_queue_ = "";
+  }
+
+  // append the incoming data to the queue
+  input_queue_ += msg;  // TODO(clairbee): optimize it to avoid extra copy
+  input_queue_last_changed_ = now;
   RCLCPP_DEBUG(node_->get_logger(), "Queued data: %s",
                (serial::utils::bin2hex(input_queue_)).c_str());
 
@@ -173,14 +196,15 @@ void Implementation::input_cb_real_(const std::string &msg) {
 
     auto p = input_promises_.begin();
     for (; p != input_promises_.end(); p++) {
-      uint8_t expected_leaf_id = p->leaf_id;
-      uint8_t expected_fc = p->fc;
+      uint8_t expected_leaf_id = (*p)->leaf_id;
+      uint8_t expected_fc = (*p)->fc;
 
       RCLCPP_DEBUG(node_->get_logger(),
                    "Expected: %02x %02x, Received: %02x %02x", expected_leaf_id,
                    expected_fc, received_leaf_id, received_fc);
       if (received_leaf_id == expected_leaf_id &&
           (received_fc == expected_fc || received_fc == (expected_fc | 0x80))) {
+        RCLCPP_DEBUG(node_->get_logger(), "Found the one waiting for the data");
         break;
       }
     }
@@ -188,6 +212,8 @@ void Implementation::input_cb_real_(const std::string &msg) {
     if (p == input_promises_.end()) {
       // Not found anyone waiting on these 2 bytes, dropping 1 of them in the
       // attempt to recover
+      RCLCPP_ERROR(node_->get_logger(),
+                   "Did not find the one waiting for this data");
       MODBUS_PUBLISH_INC(UInt32, rtu_unwanted_input_, 1);
       input_queue_.erase(0, 1);
       continue;
@@ -203,6 +229,8 @@ void Implementation::input_cb_real_(const std::string &msg) {
     if (fc_to_len_static.find(received_fc) == fc_to_len_static.end()) {
       // Unsupported fc, drop 1 byte in an attempt to recover
       input_queue_.erase(0, 1);
+      RCLCPP_ERROR(node_->get_logger(),
+                   "Did not find the one waiting for this data");
       continue;
     }
 
@@ -210,7 +238,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
     size_t expected_static_len = fc_to_len_static.at(received_fc);
     if (input_queue_.length() < expected_static_len) {
       // not enough data to parse it yet
-      RCLCPP_DEBUG(node_->get_logger(),
+      RCLCPP_ERROR(node_->get_logger(),
                    "Not enough data to parse it yet (static part).");
       MODBUS_PUBLISH_INC(UInt32, rtu_partial_input_, 1);
       input_promises_mutex_.unlock();
@@ -241,7 +269,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
     if (crc != expected_crc) {
       // CRC check failed, dropping the first byte in an attempt to find the
       // next message somewhere in this body
-      RCLCPP_DEBUG(
+      RCLCPP_ERROR(
           node_->get_logger(), "CRC failed, expected: %s, received: %s",
           (serial::utils::bin2hex(std::string((char *)&expected_crc, 2)))
               .c_str(),
@@ -253,7 +281,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
 
     // CRC is OK
     std::string response(&input_queue_[1], expected_len - 3);  // 3=leaf_id+crc
-    p->promise.set_value(response);
+    (*p)->promise.set_value(response);
     input_queue_.erase(0, expected_len);
     input_promises_.erase(p);
   }
@@ -271,21 +299,45 @@ void Implementation::input_cb_real_(const std::string &msg) {
 
 std::string Implementation::send_request_(uint8_t leaf_id, uint8_t fc,
                                           const std::string &output) {
+  RCLCPP_DEBUG(node_->get_logger(), "Sending RTU request to %02x: %s", leaf_id,
+               (serial::utils::bin2hex(output)).c_str());
   input_promises_mutex_.lock();
-  input_promises_.emplace_back(leaf_id, fc);
-  std::future<std::string> f = input_promises_.back().promise.get_future();
+  prov_->output(output);  // Send the request ASAP to reduce the latency
+
+  auto input_promise = std::make_shared<Promise>(leaf_id, fc);
+  input_promise->start = std::chrono::steady_clock::now();
+  input_promise->request = output;
+  input_promises_.push_back(input_promise);
+  std::future<std::string> f = input_promise->promise.get_future();
   input_promises_mutex_.unlock();
 
-  // Make sure to write after the promise is already queued
-  prov_->output(output);
-
-  // TODO(clairbee): implement a timeout here
-  f.wait();
+  auto status = f.wait_for(std::chrono::milliseconds(INPUT_QUEUE_TIMEOUT_MS));
+  if (status == std::future_status::timeout) {
+    RCLCPP_ERROR(node_->get_logger(), "send_request_(): future timed out");
+    input_promises_mutex_.lock();
+    auto p = input_promises_.begin();
+    for (; p != input_promises_.end(); p++) {
+      if ((*p) == input_promise) {
+        // remove ourselves from the list of waiters
+        input_promises_.erase(p);
+        break;
+      }
+    }
+    input_promises_mutex_.unlock();
+    return "";
+  }
   RCLCPP_DEBUG(node_->get_logger(), "Future arrived");
 
   std::string result = f.get();
-  RCLCPP_DEBUG(node_->get_logger(), "Received RTU response: %s",
-               (serial::utils::bin2hex(result)).c_str());
+
+#ifdef DEBUG
+  auto end = std::chrono::steady_clock::now();
+#endif
+  RCLCPP_DEBUG(node_->get_logger(), "Received RTU response: %s after %dms",
+               (serial::utils::bin2hex(result)).c_str(),
+               (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
+                         end - input_promise->start)
+                         .count()));
 
   return result;
 }

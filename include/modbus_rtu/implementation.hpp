@@ -10,6 +10,7 @@
 #ifndef OPENVMP_MODBUS_RTU_IMPLEMENTATION_H
 #define OPENVMP_MODBUS_RTU_IMPLEMENTATION_H
 
+#include <chrono>
 #include <future>
 #include <memory>
 #include <string>
@@ -61,12 +62,15 @@ class Implementation : public modbus::Implementation {
     uint8_t leaf_id;
     uint8_t fc;
     std::promise<std::string> promise;
+    std::chrono::steady_clock::time_point start;
+    std::string request;
   };
   // input_promises_ contain everyone waiting for their lef_id to repspond
-  std::vector<Promise> input_promises_;
+  std::vector<std::shared_ptr<Promise>> input_promises_;
   // input_queue_ accumulates data from previous read()s until the entire frame
   // arrives
   std::string input_queue_;
+  std::chrono::steady_clock::time_point input_queue_last_changed_;
   std::mutex input_promises_mutex_;
 
   // input_cb is a static method to receive callbacks from the serial module.
