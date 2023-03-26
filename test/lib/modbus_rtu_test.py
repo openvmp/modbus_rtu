@@ -2,12 +2,12 @@ import sys
 
 sys.path.append("../serial/test/lib")
 
-from serial_test import SerialTesterNode
+from ros2_serial_test import SerialTesterNode
 
 import rclpy
 from rclpy.node import Node as rclpyNode
-from serial.srv import InjectOutput
-from modbus.srv import HoldingRegisterRead
+from ros2_serial.srv import InjectOutput
+from ros2_modbus.srv import HoldingRegisterRead
 import std_msgs.msg
 
 

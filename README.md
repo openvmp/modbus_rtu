@@ -16,7 +16,7 @@ in case of serial line saturation in any of the I/O directions.
 ### Modbus RTU via ROS2 interface
 
 ```
-$ ros2 run modbus_rtu modbus_rtu_standalone \
+$ ros2 run ros2_modbus_rtu ros2_modbus_rtu_standalone \
   --ros-args \
   --remap modbus_rtu:__node:=modbus_rtu_example_bus \
   -p modbus_prefix:=/modbus/example_bus \
@@ -44,11 +44,11 @@ flowchart TB
     cli["# Modbus debugging\n$ ros2 topic echo /modbus/example_bus/id01"] -. "DDS" .-> topic_modbus
     app["Any application"] -- "DDS\n(with context switch)" --> topic_modbus
     cli_serial["# Serial debugging\n$ ros2 topic echo /serial"] -. "DDS" ....-> topic_serial[/ROS2 interfaces:\n/serial/com1/.../]
-    subgraph modbus_exe["Process: modbus_rtu_standalone"]
-      subgraph modbus["Library: modbus"]
+    subgraph modbus_exe["Process: ros2_modbus_rtu_standalone"]
+      subgraph modbus["Library: ros2_modbus"]
         topic_modbus[/ROS2 interfaces:\n/modbus/example_bus/id01/.../] --> driver_modbus["Modbus implementation"]
       end
-      subgraph serial["Library: serial"]
+      subgraph serial["Library: ros2_serial"]
         topic_serial --> driver["Serial port driver"]
       end
       driver_modbus --> rtu["Modbus RTU implementation"]
@@ -91,11 +91,11 @@ flowchart TB
     subgraph app["Your application"]
       code["Your code"] -- "Native API calls\n(no context switch)" --> driver_modbus
       code["Your code"] -- "or DDS\n(potentially without\ncontext switch)" --> topic_modbus
-      subgraph modbus_exe["Library: modbus_rtu"]
-        subgraph modbus["Library: modbus"]
+      subgraph modbus_exe["Library: ros2_modbus_rtu"]
+        subgraph modbus["Library: ros2_modbus"]
           topic_modbus[/ROS2 interfaces:\n/modbus/example_bus/id01/] --> driver_modbus["Modbus implementation"]
         end
-        subgraph serial["Library: serial"]
+        subgraph serial["Library: ros2_serial"]
           topic_serial --> driver["Serial port driver"]
         end
         driver_modbus --> rtu["Modbus RTU implementation"]
@@ -113,10 +113,10 @@ flowchart TB
 The following code uses either local native API or remote ROS2 interface calls depending on the parameter "modbus_is_remote":
 
 ```c++
-#include "modbus_rtu/factory.hpp"
+#include "ros2_modbus_rtu/factory.hpp"
 
 ...
-  auto modbus_rtu_impl = modbus_rtu::Factory::New(this);
+  auto modbus_rtu_impl = ros2_modbus_rtu::Factory::New(this);
   modbus_rtu_impl->holding_register_read(...);
 ...
 ```
@@ -126,11 +126,10 @@ The following code uses either local native API or remote ROS2 interface calls d
 The following code initializes Modbus RTU locally and uses native API calls:
 
 ```c++
-#include "modbus_rtu/implementation.hpp"
+#include "ros2_modbus_rtu/implementation.hpp"
 
 ...
-  auto modbus_rtu_impl = std::make_shared<modbus_rtu::Implementation>(this);
+  auto modbus_rtu_impl = std::make_shared<ros2_modbus_rtu::Implementation>(this);
   modbus_rtu_impl->holding_register_read(...);
 ...
 ```
-

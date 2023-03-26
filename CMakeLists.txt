@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(modbus_rtu)
+project(ros2_modbus_rtu)
 
 # Compiler settings
 if(NOT CMAKE_CXX_STANDARD)
@@ -15,14 +15,14 @@ add_compile_options(-fPIC)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(modbus REQUIRED)
-find_package(serial REQUIRED)
+find_package(ros2_modbus REQUIRED)
+find_package(ros2_serial REQUIRED)
 
 # Logic shared by all targets
 include_directories(
   include
-  ${serial_INCLUDE_DIRS}
-  ${modbus_INCLUDE_DIRS}
+  ${ros2_serial_INCLUDE_DIRS}
+  ${ros2_modbus_INCLUDE_DIRS}
 )
 
 set(project_SOURCE_FILES
@@ -34,16 +34,16 @@ set(project_SOURCE_FILES
 
 set(project_LIBRARIES
   ${rclcpp_LIBRARIES}
-  ${serial_LIBRARIES}
-  ${serial_native_LIBRARIES}
-  ${modbus_LIBRARIES}
+  ${ros2_serial_LIBRARIES}
+  ${ros2_serial_native_LIBRARIES}
+  ${ros2_modbus_LIBRARIES}
 )
 
 set(project_DEPENDENCIES
   rclcpp
   std_msgs
-  serial
-  modbus
+  ros2_serial
+  ros2_modbus
 )
 
 # Executable target
@@ -60,7 +60,7 @@ add_library(${PROJECT_NAME}_native src/factory.cpp ${project_SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME}_native ${project_LIBRARIES} "${cpp_typesupport_target}")
 ament_target_dependencies(${PROJECT_NAME}_native ${project_DEPENDENCIES})
 ament_export_targets(${PROJECT_NAME}_native_library HAS_LIBRARY_TARGET)
-ament_export_dependencies(${project_DEPENDENCIES} ${modbus_DEPENDENCIES})
+ament_export_dependencies(${project_DEPENDENCIES} ${ros2_modbus_DEPENDENCIES})
 ament_export_include_directories(include)
 install(TARGETS ${PROJECT_NAME}_native
   EXPORT ${PROJECT_NAME}_native_library

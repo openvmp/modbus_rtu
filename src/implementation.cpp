@@ -7,15 +7,15 @@
  * Licensed under Apache License, Version 2.0.
  */
 
-#include "modbus_rtu/implementation.hpp"
+#include "ros2_modbus_rtu/implementation.hpp"
 
 #include <chrono>
 #include <cstdlib>
 
-#include "modbus/protocol.hpp"
-#include "modbus_rtu/node.hpp"
-#include "serial/factory.hpp"
-#include "serial/utils.hpp"
+#include "ros2_modbus/protocol.hpp"
+#include "ros2_modbus_rtu/node.hpp"
+#include "ros2_serial/factory.hpp"
+#include "ros2_serial/utils.hpp"
 
 using namespace std::chrono_literals;
 
@@ -24,7 +24,7 @@ using namespace std::chrono_literals;
 #define RCLCPP_DEBUG(...)
 #endif
 
-namespace modbus_rtu {
+namespace ros2_modbus_rtu {
 
 static const std::map<uint8_t, const size_t> fc_to_len_static = {
     {MODBUS_FC_READ_HOLDING_REGISTERS, 2 + 1 + 2},
@@ -118,7 +118,7 @@ std::string Implementation::modbus_rtu_frame_(uint8_t *data, size_t size) {
 }
 
 Implementation::Implementation(rclcpp::Node *node)
-    : modbus::Implementation(node) {
+    : ros2_modbus::Implementation(node) {
   input_queue_last_changed_ = std::chrono::steady_clock::now();
 
   auto prefix = get_prefix_();
@@ -144,7 +144,7 @@ Implementation::Implementation(rclcpp::Node *node)
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
       prefix + "/rtu/partial_input", qos);
 
-  prov_ = serial::Factory::New(node);
+  prov_ = ros2_serial::Factory::New(node);
   prov_->register_input_cb(&Implementation::input_cb_, this);
 }
 
@@ -159,7 +159,7 @@ Implementation::Implementation(rclcpp::Node *node)
 
 void Implementation::input_cb_real_(const std::string &msg) {
   RCLCPP_DEBUG(node_->get_logger(), "Received data: %s",
-               (serial::utils::bin2hex(msg)).c_str());
+               (ros2_serial::utils::bin2hex(msg)).c_str());
 
   input_promises_mutex_.lock();
 
@@ -181,7 +181,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
   input_queue_ += msg;  // TODO(clairbee): optimize it to avoid extra copy
   input_queue_last_changed_ = now;
   RCLCPP_DEBUG(node_->get_logger(), "Queued data: %s",
-               (serial::utils::bin2hex(input_queue_)).c_str());
+               (ros2_serial::utils::bin2hex(input_queue_)).c_str());
 
   // check if there is anything to do
   while (input_queue_.length() > 0 && input_promises_.size() != 0) {
@@ -271,9 +271,9 @@ void Implementation::input_cb_real_(const std::string &msg) {
       // next message somewhere in this body
       RCLCPP_ERROR(
           node_->get_logger(), "CRC failed, expected: %s, received: %s",
-          (serial::utils::bin2hex(std::string((char *)&expected_crc, 2)))
+          (ros2_serial::utils::bin2hex(std::string((char *)&expected_crc, 2)))
               .c_str(),
-          (serial::utils::bin2hex(std::string((char *)&crc, 2))).c_str());
+          (ros2_serial::utils::bin2hex(std::string((char *)&crc, 2))).c_str());
       MODBUS_PUBLISH_INC(UInt32, rtu_crc_check_failed_, 1);
       input_queue_.erase(0, 1);
       continue;
@@ -300,7 +300,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
 std::string Implementation::send_request_(uint8_t leaf_id, uint8_t fc,
                                           const std::string &output) {
   RCLCPP_DEBUG(node_->get_logger(), "Sending RTU request to %02x: %s", leaf_id,
-               (serial::utils::bin2hex(output)).c_str());
+               (ros2_serial::utils::bin2hex(output)).c_str());
   input_promises_mutex_.lock();
   prov_->output(output);  // Send the request ASAP to reduce the latency
 
@@ -334,7 +334,7 @@ std::string Implementation::send_request_(uint8_t leaf_id, uint8_t fc,
   auto end = std::chrono::steady_clock::now();
 #endif
   RCLCPP_DEBUG(node_->get_logger(), "Received RTU response: %s after %dms",
-               (serial::utils::bin2hex(result)).c_str(),
+               (ros2_serial::utils::bin2hex(result)).c_str(),
                (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
                          end - input_promise->start)
                          .count()));
@@ -342,4 +342,4 @@ std::string Implementation::send_request_(uint8_t leaf_id, uint8_t fc,
   return result;
 }
 
-}  // namespace modbus_rtu
+}  // namespace ros2_modbus_rtu

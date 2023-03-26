@@ -10,18 +10,18 @@
 #include <chrono>
 #include <cstdlib>
 
-#include "modbus/protocol.hpp"
-#include "modbus_rtu/implementation.hpp"
-#include "modbus_rtu/node.hpp"
-#include "serial/utils.hpp"
+#include "ros2_modbus/protocol.hpp"
+#include "ros2_modbus_rtu/implementation.hpp"
+#include "ros2_modbus_rtu/node.hpp"
+#include "ros2_serial/utils.hpp"
 
 using namespace std::chrono_literals;
 
-namespace modbus_rtu {
+namespace ros2_modbus_rtu {
 
 rclcpp::FutureReturnCode Implementation::get_com_event_log_handler_real_(
-    const std::shared_ptr<modbus::srv::GetComEventLog::Request> request,
-    std::shared_ptr<modbus::srv::GetComEventLog::Response> response) {
+    const std::shared_ptr<ros2_modbus::srv::GetComEventLog::Request> request,
+    std::shared_ptr<ros2_modbus::srv::GetComEventLog::Response> response) {
   static const uint8_t fc = MODBUS_FC_GET_COM_EVENT_LOG;
   uint8_t data[] = {
       request->leaf_id, fc,
@@ -57,8 +57,8 @@ rclcpp::FutureReturnCode Implementation::get_com_event_log_handler_real_(
 }
 
 rclcpp::FutureReturnCode Implementation::read_device_id_handler_real_(
-    const std::shared_ptr<modbus::srv::ReadDeviceId::Request> request,
-    std::shared_ptr<modbus::srv::ReadDeviceId::Response> response) {
+    const std::shared_ptr<ros2_modbus::srv::ReadDeviceId::Request> request,
+    std::shared_ptr<ros2_modbus::srv::ReadDeviceId::Response> response) {
   static const uint8_t fc = MODBUS_FC_READ_DEVICE_ID;
 
   uint8_t conformity_level = 3;
@@ -132,4 +132,4 @@ rclcpp::FutureReturnCode Implementation::read_device_id_handler_real_(
   return rclcpp::FutureReturnCode::SUCCESS;
 }
 
-}  // namespace modbus_rtu
+}  // namespace ros2_modbus_rtu

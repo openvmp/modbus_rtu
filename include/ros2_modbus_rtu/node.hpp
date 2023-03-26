@@ -13,10 +13,10 @@
 #include <memory>
 #include <string>
 
-#include "modbus_rtu/implementation.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "ros2_modbus_rtu/implementation.hpp"
 
-namespace modbus_rtu {
+namespace ros2_modbus_rtu {
 
 class Node : public rclcpp::Node {
  public:
@@ -26,6 +26,6 @@ class Node : public rclcpp::Node {
   std::shared_ptr<Implementation> impl_;
 };
 
-}  // namespace modbus_rtu
+}  // namespace ros2_modbus_rtu
 
 #endif  // OPENVMP_MODBUS_RTU_NODE_H

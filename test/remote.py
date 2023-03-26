@@ -45,8 +45,8 @@ def generate_test_description():
     )
     node1 = Node(
         name="serial_com1",
-        package="serial",
-        executable="serial_standalone",
+        package="ros2_serial",
+        executable="ros2_serial_standalone",
         # arguments=["--ros-args", "--log-level", "debug"],
         parameters=[
             {
@@ -64,8 +64,8 @@ def generate_test_description():
     )
     node2 = Node(
         name="modbus_rtu_com1",
-        package="modbus_rtu",
-        executable="modbus_rtu_standalone",
+        package="ros2_modbus_rtu",
+        executable="ros2_modbus_rtu_standalone",
         # arguments=["--ros-args", "--log-level", "debug"],
         parameters=[
             {
@@ -77,8 +77,8 @@ def generate_test_description():
     )
     node3 = Node(
         name="serial_com2",
-        package="serial",
-        executable="serial_standalone",
+        package="ros2_serial",
+        executable="ros2_serial_standalone",
         # arguments=["--ros-args", "--log-level", "debug"],
         parameters=[
             {

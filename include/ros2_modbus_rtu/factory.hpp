@@ -12,16 +12,16 @@
 
 #include <memory>
 
-#include "modbus/interface.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "ros2_modbus/interface.hpp"
 
-namespace modbus_rtu {
+namespace ros2_modbus_rtu {
 
 class Factory {
  public:
-  static std::shared_ptr<modbus::Interface> New(rclcpp::Node *node);
+  static std::shared_ptr<ros2_modbus::Interface> New(rclcpp::Node *node);
 };
 
-}  // namespace modbus_rtu
+}  // namespace ros2_modbus_rtu
 
 #endif  // OPENVMP_MODBUS_RTU_FACTORY_H
