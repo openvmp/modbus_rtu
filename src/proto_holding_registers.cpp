@@ -70,8 +70,10 @@ rclcpp::FutureReturnCode Implementation::holding_register_read_handler_real_(
 }
 
 rclcpp::FutureReturnCode Implementation::holding_register_write_handler_real_(
-    const std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Request> request,
-    std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Response> response) {
+    const std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Request>
+        request,
+    std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Response>
+        response) {
   static const uint8_t fc = MODBUS_FC_PRESET_SINGLE_REGISTER;
   uint8_t data[] = {
       request->leaf_id,
