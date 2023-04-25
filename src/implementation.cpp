@@ -21,7 +21,12 @@ using namespace std::chrono_literals;
 
 #ifndef DEBUG
 #undef RCLCPP_DEBUG
+#if 1
 #define RCLCPP_DEBUG(...)
+#else
+#define RCLCPP_DEBUG RCLCPP_INFO
+#define DEBUG 1
+#endif
 #endif
 
 namespace ros2_modbus_rtu {
@@ -123,28 +128,19 @@ Implementation::Implementation(rclcpp::Node *node)
 
   auto prefix = get_prefix_();
 
-  rmw_qos_profile_t rmw = {
-      .history = rmw_qos_history_policy_t::RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-      .depth = 1,
-      .reliability =
-          rmw_qos_reliability_policy_t::RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
-      .durability = RMW_QOS_POLICY_DURABILITY_VOLATILE,
-      .deadline = {0, 50000000},
-      .lifespan = {0, 50000000},
-      .liveliness = RMW_QOS_POLICY_LIVELINESS_AUTOMATIC,
-      .liveliness_lease_duration = {0, 0},
-      .avoid_ros_namespace_conventions = false,
-  };
-  auto qos = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(rmw), rmw);
-
   rtu_crc_check_failed_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/crc_check_failed", qos);
+      prefix + "/rtu/crc_check_failed", 10);
   rtu_unwanted_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/unwanted_input", qos);
+      prefix + "/rtu/unwanted_input", 10);
   rtu_partial_input_ = node->create_publisher<std_msgs::msg::UInt32>(
-      prefix + "/rtu/partial_input", qos);
+      prefix + "/rtu/partial_input", 10);
 
   prov_ = ros2_serial::Factory::New(node);
+
+  // Do not create own interfaces
+  // before the downstream interface ('prov_') is created.
+  init_modbus_();
+
   prov_->register_input_cb(&Implementation::input_cb_, this);
 }
 
@@ -164,7 +160,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
   input_promises_mutex_.lock();
 
 // check if buffered data is old enough to be ignored
-#define INPUT_QUEUE_TIMEOUT_MS 17
+#define INPUT_QUEUE_TIMEOUT_MS 60
   auto now = std::chrono::steady_clock::now();
   if (std::chrono::duration_cast<std::chrono::milliseconds>(
           input_queue_last_changed_ - now)
@@ -238,7 +234,7 @@ void Implementation::input_cb_real_(const std::string &msg) {
     size_t expected_static_len = fc_to_len_static.at(received_fc);
     if (input_queue_.length() < expected_static_len) {
       // not enough data to parse it yet
-      RCLCPP_ERROR(node_->get_logger(),
+      RCLCPP_DEBUG(node_->get_logger(),
                    "Not enough data to parse it yet (static part).");
       MODBUS_PUBLISH_INC(UInt32, rtu_partial_input_, 1);
       input_promises_mutex_.unlock();
