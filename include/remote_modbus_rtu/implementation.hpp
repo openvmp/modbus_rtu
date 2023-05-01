@@ -16,13 +16,13 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
-#include "ros2_modbus/implementation.hpp"
-#include "ros2_serial/interface.hpp"
+#include "remote_modbus/implementation.hpp"
+#include "remote_serial/interface.hpp"
 #include "std_msgs/msg/u_int32.hpp"
 
-namespace ros2_modbus_rtu {
+namespace remote_modbus_rtu {
 
-class Implementation : public ros2_modbus::Implementation {
+class Implementation : public remote_modbus::Implementation {
  public:
   Implementation(rclcpp::Node *node);
   virtual ~Implementation() {}
@@ -33,33 +33,35 @@ class Implementation : public ros2_modbus::Implementation {
   rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr rtu_partial_input_;
 
   virtual rclcpp::FutureReturnCode holding_register_read_handler_real_(
-      const std::shared_ptr<ros2_modbus::srv::HoldingRegisterRead::Request>
+      const std::shared_ptr<remote_modbus::srv::HoldingRegisterRead::Request>
           request,
-      std::shared_ptr<ros2_modbus::srv::HoldingRegisterRead::Response> response)
-      override;
+      std::shared_ptr<remote_modbus::srv::HoldingRegisterRead::Response>
+          response) override;
   virtual rclcpp::FutureReturnCode holding_register_write_handler_real_(
-      const std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Request>
+      const std::shared_ptr<remote_modbus::srv::HoldingRegisterWrite::Request>
           request,
-      std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Response>
+      std::shared_ptr<remote_modbus::srv::HoldingRegisterWrite::Response>
           response) override;
   virtual rclcpp::FutureReturnCode
   holding_register_write_multiple_handler_real_(
       const std::shared_ptr<
-          ros2_modbus::srv::HoldingRegisterWriteMultiple::Request>
+          remote_modbus::srv::HoldingRegisterWriteMultiple::Request>
           request,
-      std::shared_ptr<ros2_modbus::srv::HoldingRegisterWriteMultiple::Response>
+      std::shared_ptr<
+          remote_modbus::srv::HoldingRegisterWriteMultiple::Response>
           response) override;
   virtual rclcpp::FutureReturnCode get_com_event_log_handler_real_(
-      const std::shared_ptr<ros2_modbus::srv::GetComEventLog::Request> request,
-      std::shared_ptr<ros2_modbus::srv::GetComEventLog::Response> response)
+      const std::shared_ptr<remote_modbus::srv::GetComEventLog::Request>
+          request,
+      std::shared_ptr<remote_modbus::srv::GetComEventLog::Response> response)
       override;
   virtual rclcpp::FutureReturnCode read_device_id_handler_real_(
-      const std::shared_ptr<ros2_modbus::srv::ReadDeviceId::Request> request,
-      std::shared_ptr<ros2_modbus::srv::ReadDeviceId::Response> response)
+      const std::shared_ptr<remote_modbus::srv::ReadDeviceId::Request> request,
+      std::shared_ptr<remote_modbus::srv::ReadDeviceId::Response> response)
       override;
 
  private:
-  std::shared_ptr<ros2_serial::Interface> prov_;
+  std::shared_ptr<remote_serial::Interface> prov_;
 
   class Promise {
    public:
@@ -93,6 +95,6 @@ class Implementation : public ros2_modbus::Implementation {
   uint32_t rtu_partial_input__value_;
 };
 
-}  // namespace ros2_modbus_rtu
+}  // namespace remote_modbus_rtu
 
 #endif  // OPENVMP_MODBUS_RTU_IMPLEMENTATION_H

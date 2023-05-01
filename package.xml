@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>ros2_modbus_rtu</name>
+  <name>remote_modbus_rtu</name>
   <version>0.0.1</version>
   <description>Ultimate C++ implementation of Modbus RTU for ROS2</description>
   <maintainer email="openvmp@proton.me">Roman Kuzmenko</maintainer>
@@ -10,8 +10,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
-  <depend>ros2_modbus</depend>
-  <depend>ros2_serial</depend>
+  <depend>remote_modbus</depend>
+  <depend>remote_serial</depend>
 
 
   <test_depend>ament_lint_auto</test_depend>

@@ -14,9 +14,9 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
-#include "ros2_modbus_rtu/implementation.hpp"
+#include "remote_modbus_rtu/implementation.hpp"
 
-namespace ros2_modbus_rtu {
+namespace remote_modbus_rtu {
 
 class Node : public rclcpp::Node {
  public:
@@ -26,6 +26,6 @@ class Node : public rclcpp::Node {
   std::shared_ptr<Implementation> impl_;
 };
 
-}  // namespace ros2_modbus_rtu
+}  // namespace remote_modbus_rtu
 
 #endif  // OPENVMP_MODBUS_RTU_NODE_H

@@ -12,19 +12,20 @@
 #include <chrono>
 #include <cstdlib>
 
-#include "ros2_modbus/protocol.hpp"
-#include "ros2_modbus_rtu/implementation.hpp"
-#include "ros2_modbus_rtu/node.hpp"
-#include "ros2_serial/utils.hpp"
+#include "remote_modbus/protocol.hpp"
+#include "remote_modbus_rtu/implementation.hpp"
+#include "remote_modbus_rtu/node.hpp"
+#include "remote_serial/utils.hpp"
 
 using namespace std::chrono_literals;
 
-namespace ros2_modbus_rtu {
+namespace remote_modbus_rtu {
 
 rclcpp::FutureReturnCode Implementation::holding_register_read_handler_real_(
-    const std::shared_ptr<ros2_modbus::srv::HoldingRegisterRead::Request>
+    const std::shared_ptr<remote_modbus::srv::HoldingRegisterRead::Request>
         request,
-    std::shared_ptr<ros2_modbus::srv::HoldingRegisterRead::Response> response) {
+    std::shared_ptr<remote_modbus::srv::HoldingRegisterRead::Response>
+        response) {
   static const uint8_t fc = MODBUS_FC_READ_HOLDING_REGISTERS;
   uint8_t data[] = {
       request->leaf_id,
@@ -70,9 +71,9 @@ rclcpp::FutureReturnCode Implementation::holding_register_read_handler_real_(
 }
 
 rclcpp::FutureReturnCode Implementation::holding_register_write_handler_real_(
-    const std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Request>
+    const std::shared_ptr<remote_modbus::srv::HoldingRegisterWrite::Request>
         request,
-    std::shared_ptr<ros2_modbus::srv::HoldingRegisterWrite::Response>
+    std::shared_ptr<remote_modbus::srv::HoldingRegisterWrite::Response>
         response) {
   static const uint8_t fc = MODBUS_FC_PRESET_SINGLE_REGISTER;
   uint8_t data[] = {
@@ -114,9 +115,9 @@ rclcpp::FutureReturnCode Implementation::holding_register_write_handler_real_(
 rclcpp::FutureReturnCode
 Implementation::holding_register_write_multiple_handler_real_(
     const std::shared_ptr<
-        ros2_modbus::srv::HoldingRegisterWriteMultiple::Request>
+        remote_modbus::srv::HoldingRegisterWriteMultiple::Request>
         request,
-    std::shared_ptr<ros2_modbus::srv::HoldingRegisterWriteMultiple::Response>
+    std::shared_ptr<remote_modbus::srv::HoldingRegisterWriteMultiple::Response>
         response) {
   (void)request;
   (void)response;
@@ -125,4 +126,4 @@ Implementation::holding_register_write_multiple_handler_real_(
   return rclcpp::FutureReturnCode::INTERRUPTED;
 }
 
-}  // namespace ros2_modbus_rtu
+}  // namespace remote_modbus_rtu
