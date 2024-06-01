@@ -30,6 +30,7 @@ set(project_SOURCE_FILES
   src/implementation.cpp
   src/proto_holding_registers.cpp
   src/proto_misc.cpp
+  src/coil_read_write.cpp
 )
 
 set(project_LIBRARIES
