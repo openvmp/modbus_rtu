@@ -38,6 +38,9 @@ static const std::map<uint8_t, const size_t> fc_to_len_static = {
     {MODBUS_FC_GET_COM_EVENT_LOG, 2 + 1 + 2},
     {MODBUS_FC_READ_DEVICE_ID, 2 + 8 + 2},
     {0x80, 2 + 1 + 2},
+    {MODBUS_FC_READ_COIL, 2 + 1 + 2},
+    {MODBUS_FC_WRITE_COIL, 2 + 4 + 2}, 
+    {MODBUS_FC_WRITE_COIL_CONTINUOUS, 2 + 4 + 2},                
 };
 static const std::map<uint8_t, const size_t>
     fc_to_len_dynamic_short_multiplier_pos = {
@@ -47,6 +50,9 @@ static const std::map<uint8_t, const size_t>
         {MODBUS_FC_GET_COM_EVENT_LOG,
          9},  // FIXME(clairbee): this won't work for more than 1 object id
         {0x80, 0},
+        {MODBUS_FC_READ_COIL, 2 },
+        {MODBUS_FC_WRITE_COIL, 0 }, 
+        {MODBUS_FC_WRITE_COIL_CONTINUOUS, 0 },             
 };
 
 // Compute the MODBUS RTU CRC

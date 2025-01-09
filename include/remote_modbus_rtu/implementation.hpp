@@ -59,6 +59,21 @@ class Implementation : public remote_modbus::Implementation {
       const std::shared_ptr<remote_modbus::srv::ReadDeviceId::Request> request,
       std::shared_ptr<remote_modbus::srv::ReadDeviceId::Response> response)
       override;
+    virtual rclcpp::FutureReturnCode coil_read_handler_real_(
+        const std::shared_ptr<remote_modbus::srv::CoilRead::Request>
+            request,
+        std::shared_ptr<remote_modbus::srv::CoilRead::Response>
+            response) override;    
+    virtual rclcpp::FutureReturnCode coil_write_handler_real_(
+         const std::shared_ptr<remote_modbus::srv::CoilWrite::Request>
+            request,
+        std::shared_ptr<remote_modbus::srv::CoilWrite::Response>
+            response) override;    
+    virtual rclcpp::FutureReturnCode coil_continuous_write_handler_real_(
+         const std::shared_ptr<remote_modbus::srv::CoilContinuousWrite::Request>
+            request,
+        std::shared_ptr<remote_modbus::srv::CoilContinuousWrite::Response>
+            response) override;    
 
  private:
   std::shared_ptr<remote_serial::Interface> prov_;

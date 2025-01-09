@@ -49,6 +49,7 @@ rclcpp::FutureReturnCode Implementation::holding_register_read_handler_real_(
     case fc:
       // See if we have amount of data that is consistent with length
       response->len = result[1];
+      //check is the response length is odd (Dword must always be even number of bytes)
       if ((response->len & 1) || result.length() != 2 + (size_t)response->len) {
         return rclcpp::FutureReturnCode::INTERRUPTED;
       }
